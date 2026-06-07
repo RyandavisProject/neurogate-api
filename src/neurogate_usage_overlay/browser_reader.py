@@ -79,6 +79,25 @@ class NeurogateUsageReader:
             self._playwright.stop()
             self._playwright = None
 
+    @property
+    def keep_browser_open(self) -> bool:
+        return not self.settings.headless
+
+    def set_keep_browser_open(self, enabled: bool) -> None:
+        self.settings.headless = not enabled
+        self.settings.hide_after_successful_login = not enabled
+        self._write_debug(
+            parse_usage_text("", source_url=self.settings.usage_url),
+            note=f"keep_browser_open={enabled}",
+        )
+        if not self._playwright:
+            return
+        if enabled and self._current_headless is not False:
+            self._launch_context(headless=False)
+            return
+        if not enabled and self._current_headless is False:
+            self._launch_context(headless=True)
+
     def read(self) -> UsageSnapshot:
         if not self._page:
             self.start()

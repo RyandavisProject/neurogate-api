@@ -41,6 +41,7 @@ run-overlay.ps1
 - opens a visible Chrome window only when the saved session requires login;
 - closes the visible Chrome window after a successful read and returns to hidden
   mode;
+- exposes a runtime `keep_browser_open` toggle for the overlay menu;
 - waits for the dynamic usage page to expose both limit cards;
 - falls back to the last good snapshot if the site is temporarily logged out or
   still loading;
@@ -72,7 +73,8 @@ run-overlay.ps1
 - draws a compact borderless Tkinter widget;
 - keeps refresh rate at one minute or slower;
 - is draggable from any area;
-- uses a custom borderless menu instead of the native Windows menu.
+- uses a custom borderless menu instead of the native Windows menu;
+- lets the user temporarily keep or close the visible account page.
 
 ## Data Boundaries
 

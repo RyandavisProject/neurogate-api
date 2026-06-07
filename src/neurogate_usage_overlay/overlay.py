@@ -11,6 +11,8 @@ from .projection import projected_spendable_credits
 
 
 SnapshotReader = Callable[[], UsageSnapshot]
+KeepBrowserGetter = Callable[[], bool]
+KeepBrowserSetter = Callable[[bool], None]
 
 
 def short_number(value: int | None) -> str:
@@ -68,8 +70,16 @@ class UsageOverlay:
     UI_FONT = "Segoe UI Variable Small"
     TEXT_FONT = "Segoe UI Variable Text"
 
-    def __init__(self, reader: SnapshotReader, interval_seconds: int = 60) -> None:
+    def __init__(
+        self,
+        reader: SnapshotReader,
+        interval_seconds: int = 60,
+        keep_browser_open_getter: KeepBrowserGetter | None = None,
+        keep_browser_open_setter: KeepBrowserSetter | None = None,
+    ) -> None:
         self.reader = reader
+        self.keep_browser_open_getter = keep_browser_open_getter
+        self.keep_browser_open_setter = keep_browser_open_setter
         self.interval_minutes = max(1, math.ceil(interval_seconds / 60))
         if self.interval_minutes not in self.INTERVAL_CHOICES_MINUTES:
             self.interval_minutes = 1
@@ -129,9 +139,15 @@ class UsageOverlay:
 
         item_height = 24
         padding = 6
-        width = 176
+        width = 196
+        keep_browser_open = self._keep_browser_open()
         rows: list[tuple[str, Callable[[], None] | None, bool]] = [
             ("Обновить", lambda: self.refresh(force=True), False),
+            (
+                "☑ Не закрывать ЛК" if keep_browser_open else "☐ Не закрывать ЛК",
+                self._toggle_keep_browser_open if self._has_keep_browser_toggle() else None,
+                keep_browser_open,
+            ),
             ("", None, False),
             *[
                 (
@@ -207,6 +223,32 @@ class UsageOverlay:
     def _cycle_interval(self) -> None:
         index = self.INTERVAL_CHOICES_MINUTES.index(self.interval_minutes)
         self.set_interval(self.INTERVAL_CHOICES_MINUTES[(index + 1) % len(self.INTERVAL_CHOICES_MINUTES)])
+
+    def _has_keep_browser_toggle(self) -> bool:
+        return bool(self.keep_browser_open_getter and self.keep_browser_open_setter)
+
+    def _keep_browser_open(self) -> bool:
+        if not self.keep_browser_open_getter:
+            return False
+        try:
+            return self.keep_browser_open_getter()
+        except Exception as exc:  # noqa: BLE001 - keep the menu usable if browser state is unavailable.
+            self._write_ui_log(f"keep_browser_open_getter_error {exc!r}")
+            return False
+
+    def _toggle_keep_browser_open(self) -> None:
+        if not self.keep_browser_open_setter:
+            return
+        enabled = not self._keep_browser_open()
+        self.status_text = "ЛК открыт" if enabled else "ЛК закрыт"
+        self._render()
+        self.root.update_idletasks()
+        try:
+            self.keep_browser_open_setter(enabled)
+        except Exception as exc:  # noqa: BLE001 - show operational errors without crashing.
+            self._apply_error(exc)
+            return
+        self._render()
 
     def set_interval(self, minutes: int) -> None:
         self.interval_minutes = max(1, minutes)

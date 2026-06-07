@@ -47,6 +47,9 @@ The overlay is local-first.
 - Browser cookies stay on your computer in a local Playwright/Chrome profile.
 - After successful login, the visible Chrome window is closed and future reads
   continue in hidden browser mode.
+- The right-click menu includes `Не закрывать ЛК`. When enabled, the account
+  page stays open in a separate Chrome window. When disabled, that window is
+  closed and the overlay returns to hidden mode.
 
 Default local profile path:
 
@@ -107,11 +110,18 @@ First run:
 6. The widget refreshes no more often than once per minute unless you choose
    manual refresh.
 
+If you need to keep the account page visible, right-click the overlay and turn
+on `Не закрывать ЛК`. Turn it off to close the visible Chrome window again. This
+choice is runtime-only; the next normal launch returns to hidden mode unless
+you start the app with `--show-browser`.
+
 ## Controls
 
 - Drag the overlay by any visible area.
 - Left-click the interval pill, for example `1м`, to cycle refresh intervals.
 - Right-click the overlay to open the compact menu.
+- In the menu, `Не закрывать ЛК` keeps the Vibemode account page open in a
+  separate Chrome window until you turn it off.
 - Press `Esc` to close the overlay.
 - Press `Ctrl+R` to refresh, respecting the 1-minute minimum refresh guard.
 
@@ -198,7 +208,9 @@ vibemode-overlay/
     PRIVACY.md
     PUBLISHING.md
   tests/
+    test_browser_reader.py
     test_parser.py
+    test_projection.py
 ```
 
 ## Development

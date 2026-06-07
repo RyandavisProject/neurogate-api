@@ -51,7 +51,12 @@ def main() -> int:
             snapshot = reader.read()
             print(snapshot)
             return 0
-        overlay = UsageOverlay(reader.refresh, interval_seconds=args.interval)
+        overlay = UsageOverlay(
+            reader.refresh,
+            interval_seconds=args.interval,
+            keep_browser_open_getter=lambda: reader.keep_browser_open,
+            keep_browser_open_setter=reader.set_keep_browser_open,
+        )
         overlay.run()
         return 0
     finally:

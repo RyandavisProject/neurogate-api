@@ -19,6 +19,8 @@ Rules:
   opens a login page.
 - After login succeeds, the visible Chrome window should close automatically
   and future overlay updates should continue in hidden mode.
+- The right-click menu has `Не закрывать ЛК` for users who temporarily want to
+  keep the account page visible. Turning it off closes that visible window.
 - Do not upload local browser profiles, cookies, logs, screenshots, or API keys.
 - Do not push to GitHub unless the user explicitly asks.
 

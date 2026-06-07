@@ -23,6 +23,11 @@ expired, the app opens a visible Chrome window so the user can log in directly
 on the Vibemode/Neurogate website. After a successful read, that visible window
 is closed and later updates continue in hidden mode.
 
+The user can temporarily keep the account page visible with the `Не закрывать ЛК`
+menu toggle. Turning the toggle off closes the visible Chrome window and returns
+the app to hidden mode. This does not change the privacy boundary: the app still
+uses the local Chrome profile and does not collect credentials.
+
 ## What The App Does Not Do
 
 - It does not ask for a password.
@@ -32,7 +37,8 @@ is closed and later updates continue in hidden mode.
 - It does not include analytics.
 - It does not write network traces by default.
 - It does not keep a visible browser window open after successful login unless
-  the user starts it with `--show-browser`.
+  the user starts it with `--show-browser` or enables `Не закрывать ЛК` in the
+  overlay menu.
 
 ## Local Files
 
