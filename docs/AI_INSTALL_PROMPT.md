@@ -4,7 +4,9 @@ Use this prompt with Codex, Claude Code, or another local coding agent that can
 run terminal commands on your Windows machine.
 
 ```text
-You are installing Vibemode Overlay from the current repository.
+You are installing Vibemode Overlay from:
+
+https://github.com/RyandavisProject/vibemode-overlay
 
 Goal:
 Install the local Windows overlay, create a desktop shortcut, launch it, and
@@ -19,24 +21,27 @@ Rules:
 - Do not push to GitHub unless the user explicitly asks.
 
 Steps:
-1. Inspect the repository root and confirm these files exist:
+1. If the repository is not already cloned locally, clone it:
+   git clone https://github.com/RyandavisProject/vibemode-overlay.git
+   cd vibemode-overlay
+2. Inspect the repository root and confirm these files exist:
    - README.md
    - pyproject.toml
    - scripts/install.ps1
    - scripts/run-overlay.ps1
    - scripts/create-desktop-shortcut.ps1
    - src/neurogate_usage_overlay/
-2. Run:
+3. Run:
    powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
-3. Run checks:
+4. Run checks:
    powershell -ExecutionPolicy Bypass -File .\scripts\check.ps1
-4. Create or refresh the desktop shortcut:
+5. Create or refresh the desktop shortcut:
    powershell -ExecutionPolicy Bypass -File .\scripts\create-desktop-shortcut.ps1
-5. Launch the overlay:
+6. Launch the overlay:
    powershell -ExecutionPolicy Bypass -File .\scripts\run-overlay.ps1
-6. If Chrome opens a Vibemode/Neurogate login page, tell the user:
+7. If Chrome opens a Vibemode/Neurogate login page, tell the user:
    "Please log in in this Chrome window. The app does not receive your password."
-7. After launch, report:
+8. After launch, report:
    - what was installed;
    - where the desktop shortcut is;
    - how to run the overlay again;

@@ -50,10 +50,11 @@ Do not publish or share that folder.
 
 ## Install
 
-Open PowerShell in the project folder:
+From GitHub:
 
 ```powershell
-cd C:\Codex\neurogate-usage-overlay
+git clone https://github.com/RyandavisProject/vibemode-overlay.git
+cd vibemode-overlay
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
@@ -130,12 +131,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check.ps1
 
 ## AI Install Prompt
 
-For Codex, Claude Code, or another local coding agent, use:
+For Codex, Claude Code, or another local coding agent, the short command is:
 
 ```text
-Install Vibemode Overlay from this repository. Read docs/AI_INSTALL_PROMPT.md,
-follow it exactly, install dependencies, create a desktop shortcut, launch the
-overlay, and give me a short installation report in plain language.
+Install Vibemode Overlay from https://github.com/RyandavisProject/vibemode-overlay
+```
+
+If the agent asks for more detail, use:
+
+```text
+Install Vibemode Overlay from https://github.com/RyandavisProject/vibemode-overlay.
+Read docs/AI_INSTALL_PROMPT.md, follow it exactly, install dependencies, create
+a desktop shortcut, launch the overlay, and give me a short installation report
+in plain language.
 ```
 
 The detailed prompt is stored in:
