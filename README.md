@@ -240,6 +240,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check.ps1
 - текущую страницу NeuroGate с `5 часов / 7 дней`, остатками кредитов и
   полосками прогресса.
 
+## История изменений
+
+См. [CHANGELOG.md](CHANGELOG.md).
+
 ## Ограничения
 
 - Парсер читает видимый текст и элементы страницы. Если NeuroGate изменит
