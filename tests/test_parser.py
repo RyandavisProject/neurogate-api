@@ -106,6 +106,27 @@ class UsageParserTest(unittest.TestCase):
 
         self.assertEqual(snapshot.account, "pro max")
 
+    def test_parse_plan_name_skips_refresh_loading_state(self):
+        text = """
+        КАБИНЕТ КЛИЕНТА
+        Лимиты
+        Подробная информация о Вашем тарифе
+        Обновление
+        Could not load cabinet data.
+        ascend
+        активен ещё 29 д 2 ч
+        5 часов
+        109 292 654
+        Кредитов осталось
+        7 дней
+        490 367 816
+        Кредитов осталось
+        """
+
+        snapshot = parse_usage_text(text)
+
+        self.assertEqual(snapshot.account, "ascend")
+
 
 if __name__ == "__main__":
     unittest.main()

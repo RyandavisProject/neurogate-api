@@ -105,6 +105,280 @@ class BrowserReaderModeTest(unittest.TestCase):
         self.assertFalse(snapshot.is_cached)
         self.assertEqual(snapshot.status_note, "нужен вход")
 
+    def test_hidden_login_state_reopens_visible_prompt_after_previous_login(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._page = type("Page", (), {"url": reader.settings.usage_url})()
+        reader._current_headless = True
+        reader._login_prompt_opened = True
+        reader._login_visible = False
+        opens = 0
+
+        def open_visible_login_window() -> None:
+            nonlocal opens
+            opens += 1
+            reader._current_headless = False
+            reader._login_visible = True
+            reader._login_prompt_opened = True
+
+        reader._wait_for_usage_text = lambda: "EMAIL\nПАРОЛЬ\nВойти"  # type: ignore[method-assign]
+        reader._open_visible_login_window = open_visible_login_window  # type: ignore[method-assign]
+        reader._attach_window_progress = lambda _snapshot: None  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        snapshot = reader.read()
+
+        self.assertEqual(opens, 1)
+        self.assertTrue(reader._login_visible)
+        self.assertEqual(snapshot.status_note, "нужен вход")
+
+    def test_successful_read_allows_future_login_prompt(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._page = type("Page", (), {"url": reader.settings.usage_url})()
+        reader._current_headless = False
+        reader._login_prompt_opened = True
+        reader._login_visible = True
+        reader._wait_for_usage_text = lambda: """
+            КАБИНЕТ КЛИЕНТА
+            Лимиты
+            Подробная информация о Вашем тарифе
+            ascend
+            активен ещё 2 д 2 ч
+            5 часов
+            Сброс через 4 ч 58 мин
+            119 300 000
+            Кредитов осталось
+            7 дней
+            Сброс через 1 д 3 ч
+            289 100 000
+            Кредитов осталось
+        """  # type: ignore[method-assign]
+        reader._attach_window_progress = lambda _snapshot: None  # type: ignore[method-assign]
+        reader._hide_visible_browser_after_success = lambda: None  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        snapshot = reader.read()
+
+        self.assertTrue(snapshot.has_data)
+        self.assertFalse(reader._login_prompt_opened)
+        self.assertFalse(reader._login_visible)
+
+    def test_successful_read_clears_account_switch_pending(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._page = type("Page", (), {"url": reader.settings.usage_url})()
+        reader._current_headless = False
+        reader._account_switch_pending = True
+        reader._wait_for_usage_text = lambda: """
+            КАБИНЕТ КЛИЕНТА
+            Лимиты
+            ascend
+            5 часов
+            119 300 000
+            Кредитов осталось
+            7 дней
+            289 100 000
+            Кредитов осталось
+        """  # type: ignore[method-assign]
+        reader._attach_window_progress = lambda _snapshot: None  # type: ignore[method-assign]
+        reader._hide_visible_browser_after_success = lambda: None  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        snapshot = reader.read()
+
+        self.assertTrue(snapshot.has_data)
+        self.assertFalse(reader._account_switch_pending)
+
+    def test_transient_login_page_does_not_open_visible_prompt(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._current_headless = True
+        opens = 0
+        texts = [
+            "EMAIL\nПАРОЛЬ\nВойти",
+            "EMAIL\nПАРОЛЬ\nВойти",
+            """
+                КАБИНЕТ КЛИЕНТА
+                Лимиты
+                ascend
+                5 часов
+                119 300 000
+                Кредитов осталось
+                7 дней
+                289 100 000
+                Кредитов осталось
+            """,
+        ]
+
+        class Locator:
+            def inner_text(self, timeout: int) -> str:
+                return texts.pop(0)
+
+        class Page:
+            url = reader.settings.usage_url
+
+            def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+            def locator(self, _selector: str) -> Locator:
+                return Locator()
+
+        reader._page = Page()
+        reader._open_visible_login_window = lambda: nonlocal_open()  # type: ignore[method-assign]
+        reader._attach_window_progress = lambda _snapshot: None  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        def nonlocal_open() -> None:
+            nonlocal opens
+            opens += 1
+
+        snapshot = reader.read()
+
+        self.assertTrue(snapshot.has_data)
+        self.assertEqual(opens, 0)
+
+    def test_successful_visible_login_hides_current_window(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._current_headless = False
+        hides = 0
+
+        def fake_hide_current_browser_window() -> int:
+            nonlocal hides
+            hides += 1
+            reader._current_headless = True
+            return 1
+
+        reader._hide_current_browser_window = fake_hide_current_browser_window  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        reader._hide_visible_browser_after_success()
+
+        self.assertEqual(hides, 1)
+        self.assertTrue(reader._current_headless)
+
+    def test_refresh_uses_portal_refresh_when_usage_data_is_loaded(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._login_visible = False
+        reader._current_headless = True
+        reloads = 0
+        portal_refreshes = 0
+
+        class Locator:
+            def inner_text(self, timeout: int) -> str:
+                return """
+                    КАБИНЕТ КЛИЕНТА
+                    Лимиты
+                    ascend
+                    5 часов
+                    119 300 000
+                    Кредитов осталось
+                    7 дней
+                    289 100 000
+                    Кредитов осталось
+                """
+
+        class Page:
+            url = reader.settings.usage_url
+
+            def locator(self, _selector: str) -> Locator:
+                return Locator()
+
+            def reload(self, wait_until: str) -> None:
+                nonlocal reloads
+                reloads += 1
+
+        def fake_click_portal_refresh() -> None:
+            nonlocal portal_refreshes
+            portal_refreshes += 1
+
+        reader._page = Page()
+        reader._click_portal_refresh = fake_click_portal_refresh  # type: ignore[method-assign]
+        reader.read = lambda: UsageSnapshot(updated_at=datetime.now())  # type: ignore[method-assign]
+
+        reader.refresh()
+
+        self.assertEqual(portal_refreshes, 1)
+        self.assertEqual(reloads, 0)
+
+    def test_auto_login_submits_stable_prefilled_form(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._current_headless = False
+        waits = 0
+        clicks = 0
+
+        class Page:
+            def wait_for_timeout(self, _timeout: int) -> None:
+                nonlocal waits
+                waits += 1
+
+        def click_login_submit() -> bool:
+            nonlocal clicks
+            clicks += 1
+            return True
+
+        reader._page = Page()
+        reader._login_form_state = lambda: {"ready": True, "email": "user@example.com", "password": "__filled__"}  # type: ignore[method-assign]
+        reader._click_login_submit = click_login_submit  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        submitted = reader._maybe_auto_submit_login()
+
+        self.assertTrue(submitted)
+        self.assertEqual(clicks, 1)
+        self.assertGreaterEqual(waits, 16)
+
+    def test_auto_login_is_blocked_during_account_switch(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._current_headless = False
+        reader._account_switch_pending = True
+        clicks = 0
+
+        class Page:
+            def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+        def click_login_submit() -> bool:
+            nonlocal clicks
+            clicks += 1
+            return True
+
+        reader._page = Page()
+        reader._login_form_state = lambda: {"ready": True, "email": "old@example.com", "password": "__filled__"}  # type: ignore[method-assign]
+        reader._click_login_submit = click_login_submit  # type: ignore[method-assign]
+
+        submitted = reader._maybe_auto_submit_login()
+
+        self.assertFalse(submitted)
+        self.assertEqual(clicks, 0)
+
+    def test_auto_login_cancels_when_login_form_changes(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._current_headless = False
+        states = [
+            {"ready": True, "email": "old@example.com", "password": "__filled__"},
+            {"ready": True, "email": "new@example.com", "password": "__filled__"},
+        ]
+        clicks = 0
+
+        class Page:
+            def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+        def login_form_state() -> dict[str, object]:
+            return states.pop(0) if states else {"ready": True, "email": "new@example.com", "password": "__filled__"}
+
+        def click_login_submit() -> bool:
+            nonlocal clicks
+            clicks += 1
+            return True
+
+        reader._page = Page()
+        reader._login_form_state = login_form_state  # type: ignore[method-assign]
+        reader._click_login_submit = click_login_submit  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        submitted = reader._maybe_auto_submit_login()
+
+        self.assertFalse(submitted)
+        self.assertEqual(clicks, 0)
+
     def test_visible_filled_login_form_is_not_submitted_automatically(self):
         reader = NeurogateUsageReader(BrowserSettings(headless=True))
         reader._page = type("Page", (), {"url": reader.settings.usage_url})()
@@ -143,6 +417,7 @@ class BrowserReaderModeTest(unittest.TestCase):
             self.assertEqual(launches, [False])
             self.assertTrue(reader._login_prompt_opened)
             self.assertTrue(reader._login_visible)
+            self.assertTrue(reader._account_switch_pending)
 
     def test_attach_window_progress_clamps_site_percent(self):
         reader = NeurogateUsageReader(BrowserSettings())

@@ -32,8 +32,10 @@ uses the local Chrome profile and does not collect credentials.
 
 The user can switch NeuroGate accounts from the overlay menu with
 `Сменить аккаунт`. This closes the current browser context, removes only the
-overlay's local browser profile, and opens a fresh NeuroGate login window. It
-does not touch the user's normal Chrome profile.
+overlay's local browser profile, and opens a fresh NeuroGate login window.
+Automatic login clicks are blocked during this account-switch flow until the
+user successfully logs in to the new account. It does not touch the user's
+normal Chrome profile.
 
 ## What The App Does Not Do
 
@@ -46,8 +48,11 @@ does not touch the user's normal Chrome profile.
 - It does not keep a visible browser window open after successful login unless
   the user starts it with `--show-browser` or enables `Не закрывать ЛК` in the
   overlay menu.
-- It does not automatically press the login button. The user confirms login
-  directly on the NeuroGate website.
+- It may automatically press the login button only for normal session recovery,
+  when the NeuroGate login form is already filled by the local browser and stays
+  unchanged for several seconds. It does not store the password; it only checks
+  whether the local form is filled. During `Сменить аккаунт`, automatic login is
+  disabled and the user confirms login manually on the NeuroGate website.
 
 ## Local Files
 
@@ -82,6 +87,15 @@ Local logs are also written under:
 
 These files are for the user's own machine only and must not be published.
 The app does not store old usage-limit snapshots for fallback display.
+
+The app also creates a small local lock file:
+
+```text
+%USERPROFILE%\.neurogate-usage-overlay\overlay.lock
+```
+
+This file is only used to prevent two overlay instances from running at the
+same time. It does not contain credentials or usage data.
 
 The release ZIP and the GitHub repository do not include the local
 `browser-profile` folder. Each user gets a separate local browser session on

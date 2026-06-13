@@ -116,7 +116,7 @@ class UsageOverlay:
         self.tooltip_window: tk.Toplevel | None = None
 
         self.root = tk.Tk()
-        self.root.title("NeuroGate API 1.5.2")
+        self.root.title("NeuroGate API 1.6.0")
         self.root.geometry(self._initial_geometry())
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)

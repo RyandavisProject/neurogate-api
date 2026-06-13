@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .browser_reader import BrowserSettings, NeurogateUsageReader, USAGE_URL
 from .overlay import UsageOverlay
+from .single_instance import SingleInstanceLock
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +38,11 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args()
+    lock = SingleInstanceLock(args.profile_dir.parent / "overlay.lock")
+    if not lock.acquire():
+        print("NeuroGate API overlay is already running.")
+        return 0
+
     settings = BrowserSettings(
         usage_url=args.url,
         profile_dir=args.profile_dir,
@@ -61,7 +67,10 @@ def main() -> int:
         overlay.run()
         return 0
     finally:
-        reader.stop()
+        try:
+            reader.stop()
+        finally:
+            lock.release()
 
 
 if __name__ == "__main__":

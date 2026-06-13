@@ -10,12 +10,12 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 # Keep one overlay instance. Multiple instances fight for the same Chrome
-# profile and can show empty values. Do not match PowerShell/cmd launchers here:
-# parent shells can contain this project path in their command line.
+# profile and can show empty values. Match old global installs too: early
+# public builds could be started with a global Python instead of this .venv.
 Get-CimInstance Win32_Process |
     Where-Object {
         (
-            ($_.Name -eq 'python.exe' -and $_.CommandLine -match 'neurogate_usage_overlay') -or
+            ($_.Name -in @('python.exe', 'pythonw.exe', 'py.exe') -and $_.CommandLine -match 'neurogate_usage_overlay|neurogate-overlay|neurogate-api|vibemode-overlay|neurogate-usage-overlay') -or
             ($_.Name -eq 'node.exe' -and $_.CommandLine -match [regex]::Escape($Root)) -or
             ($_.Name -eq 'chrome.exe' -and $_.CommandLine -match [regex]::Escape($ProfilePath))
         )

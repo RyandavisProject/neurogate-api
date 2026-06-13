@@ -15,6 +15,8 @@ from .parser import parse_usage_text
 USAGE_URL = "https://portal.neurogate.space/client/usage"
 VISIBLE_WINDOW_ARGS = ("--window-position=96,80", "--window-size=1180,860")
 HIDDEN_WINDOW_ARGS = ("--window-position=-32000,-32000", "--window-size=1440,950")
+LOGIN_CONFIRM_ATTEMPTS = 10
+AUTO_LOGIN_DELAY_ATTEMPTS = 16
 
 
 def _hide_windows_for_pids(process_ids: set[int]) -> int:
@@ -45,6 +47,7 @@ class BrowserSettings:
     headless: bool = True
     show_browser_on_login: bool = True
     hide_after_successful_login: bool = True
+    auto_login: bool = True
     browser_channel: str = "chrome"
     timeout_ms: int = 45_000
     debug_log: Path = Path.home() / ".neurogate-usage-overlay" / "overlay-debug.log"
@@ -59,6 +62,7 @@ class NeurogateUsageReader:
         self._current_headless: bool | None = None
         self._login_visible = False
         self._login_prompt_opened = False
+        self._account_switch_pending = False
 
     def start(self) -> None:
         try:
@@ -183,9 +187,9 @@ class NeurogateUsageReader:
             self._page.goto(self.settings.usage_url, wait_until="domcontentloaded")
         text = self._wait_for_usage_text()
         if self._is_login_text(text) and self._current_headless and self.settings.show_browser_on_login:
-            if not self._login_prompt_opened:
-                self._open_visible_login_window()
-                text = self._wait_for_usage_text()
+            self._open_visible_login_window()
+            self._maybe_auto_submit_login()
+            text = self._wait_for_usage_text()
         snapshot = parse_usage_text(text, source_url=self._page.url)
         self._attach_window_progress(snapshot)
         if not snapshot.windows and not self._is_login_text(text):
@@ -194,7 +198,9 @@ class NeurogateUsageReader:
             snapshot = parse_usage_text(text, source_url=self._page.url)
             self._attach_window_progress(snapshot)
         if snapshot.has_data:
+            self._login_prompt_opened = False
             self._login_visible = False
+            self._account_switch_pending = False
             self._hide_visible_browser_after_success()
         else:
             self._login_visible = self._is_login_text(snapshot.raw_text) and self._current_headless is False
@@ -207,7 +213,10 @@ class NeurogateUsageReader:
             self.start()
         assert self._page is not None
         if not self._login_visible:
-            self._page.reload(wait_until="domcontentloaded")
+            if self._current_page_has_usage_data():
+                self._click_portal_refresh()
+            else:
+                self._page.reload(wait_until="domcontentloaded")
         return self.read()
 
     def _is_login_text(self, text: str) -> bool:
@@ -231,6 +240,7 @@ class NeurogateUsageReader:
             shutil.rmtree(self.settings.profile_dir)
         self._login_prompt_opened = True
         self._login_visible = True
+        self._account_switch_pending = True
         if not self._playwright:
             self.start()
             self._close_context()
@@ -240,6 +250,87 @@ class NeurogateUsageReader:
             self._page.bring_to_front()
         except Exception:
             pass
+
+    def _maybe_auto_submit_login(self) -> bool:
+        if not self.settings.auto_login or self._account_switch_pending:
+            return False
+        if self._current_headless is not False or not self._page:
+            return False
+        try:
+            first_state = self._login_form_state()
+            if not first_state.get("ready"):
+                return False
+            for _attempt in range(AUTO_LOGIN_DELAY_ATTEMPTS):
+                self._page.wait_for_timeout(500)
+                current_state = self._login_form_state()
+                if not current_state.get("ready"):
+                    return False
+                if (
+                    current_state.get("email") != first_state.get("email")
+                    or current_state.get("password") != first_state.get("password")
+                    or current_state.get("password_length") != first_state.get("password_length")
+                ):
+                    self._write_debug(
+                        parse_usage_text("", source_url=self.settings.usage_url),
+                        note="auto_login_cancelled_form_changed",
+                    )
+                    return False
+            clicked = self._click_login_submit()
+            if clicked:
+                self._write_debug(parse_usage_text("", source_url=self.settings.usage_url), note="auto_login_submitted")
+                self._page.wait_for_timeout(1200)
+            return clicked
+        except Exception as exc:
+            self._write_debug(parse_usage_text("", source_url=self.settings.usage_url), note=f"auto_login_error={exc!r}")
+            return False
+
+    def _login_form_state(self) -> dict[str, object]:
+        assert self._page is not None
+        return self._page.evaluate(
+            """() => {
+                const inputs = Array.from(document.querySelectorAll("input"));
+                const byText = (input, pattern) => {
+                    const haystack = [
+                        input.type,
+                        input.name,
+                        input.id,
+                        input.autocomplete,
+                        input.placeholder,
+                        input.getAttribute("aria-label"),
+                    ].filter(Boolean).join(" ").toLowerCase();
+                    return pattern.test(haystack);
+                };
+                const email = inputs.find((input) => byText(input, /email|mail|login|user|почт|логин/i));
+                const password = inputs.find((input) => input.type === "password" || byText(input, /password|парол/i));
+                const emailValue = email ? email.value || "" : "";
+                const passwordValue = password ? password.value || "" : "";
+                return {
+                    ready: Boolean(email && password && emailValue && passwordValue),
+                    email: emailValue,
+                    password: passwordValue ? "__filled__" : "",
+                    password_length: passwordValue.length,
+                };
+            }"""
+        )
+
+    def _click_login_submit(self) -> bool:
+        assert self._page is not None
+        return bool(
+            self._page.evaluate(
+                """() => {
+                    const normalize = (value) => (value || "").replace(/\\s+/g, " ").trim().toLowerCase();
+                    const candidates = Array.from(document.querySelectorAll("button, input[type='submit'], [role='button']"));
+                    const submit = candidates.find((node) => {
+                        const text = normalize(node.innerText || node.value || node.getAttribute("aria-label"));
+                        const type = normalize(node.getAttribute("type"));
+                        return type === "submit" || text.includes("войти") || text.includes("login") || text.includes("sign in");
+                    });
+                    if (!submit) return false;
+                    submit.click();
+                    return true;
+                }"""
+            )
+        )
 
     def _hide_visible_browser_after_success(self) -> None:
         if (
@@ -259,15 +350,22 @@ class NeurogateUsageReader:
     def _wait_for_usage_text(self) -> str:
         assert self._page is not None
         last_text = ""
+        login_text = ""
+        login_attempts = 0
         for _attempt in range(30):
             self._page.wait_for_timeout(500)
             last_text = self._page.locator("body").inner_text(timeout=self.settings.timeout_ms)
-            if "EMAIL" in last_text or "Connect Codex" in last_text:
-                return last_text
             if last_text.count("Кредитов осталось") >= 2:
                 return last_text
             if "ЛИМИТЫ ТАРИФА" in last_text:
                 return last_text
+            if self._is_login_text(last_text):
+                login_text = last_text
+                login_attempts += 1
+                if login_attempts >= LOGIN_CONFIRM_ATTEMPTS:
+                    return login_text
+                continue
+            login_attempts = 0
         return last_text
 
     def _expand_usage_card(self, force: bool = False) -> None:
@@ -295,6 +393,30 @@ class NeurogateUsageReader:
             }"""
         )
         self._page.wait_for_timeout(900)
+
+    def _current_page_has_usage_data(self) -> bool:
+        assert self._page is not None
+        try:
+            text = self._page.locator("body").inner_text(timeout=3000)
+        except Exception:
+            return False
+        snapshot = parse_usage_text(text, source_url=self._page.url)
+        return snapshot.has_data
+
+    def _click_portal_refresh(self) -> None:
+        assert self._page is not None
+        try:
+            self._page.evaluate(
+                """() => {
+                    const normalize = (value) => (value || "").replace(/\\s+/g, " ").trim().toLowerCase();
+                    const nodes = Array.from(document.querySelectorAll("button, [role='button']"));
+                    const refresh = nodes.find((node) => normalize(node.innerText).includes("обновить"));
+                    if (refresh) refresh.click();
+                }"""
+            )
+            self._page.wait_for_timeout(900)
+        except Exception:
+            pass
 
     def _attach_window_progress(self, snapshot: UsageSnapshot) -> None:
         if not snapshot.windows or not self._page:
