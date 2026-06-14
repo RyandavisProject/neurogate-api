@@ -112,7 +112,6 @@ class UsageParserTest(unittest.TestCase):
         Лимиты
         Подробная информация о Вашем тарифе
         Обновление
-        Could not load cabinet data.
         ascend
         активен ещё 29 д 2 ч
         5 часов
@@ -126,6 +125,50 @@ class UsageParserTest(unittest.TestCase):
         snapshot = parse_usage_text(text)
 
         self.assertEqual(snapshot.account, "ascend")
+
+    def test_stale_cabinet_error_does_not_reuse_old_limit_cards(self):
+        text = """
+        КАБИНЕТ КЛИЕНТА
+        Лимиты
+        Подробная информация о Вашем тарифе
+        Сессия больше недействительна.
+        ascend
+        активен ещё 28 д 8 ч
+        5 часов
+        117 888 444
+        Кредитов осталось
+        7 дней
+        421 381 328
+        Кредитов осталось
+        """
+
+        snapshot = parse_usage_text(text)
+
+        self.assertFalse(snapshot.has_data)
+        self.assertIsNone(snapshot.account)
+        self.assertEqual(snapshot.status_note, "нужен вход")
+
+    def test_cabinet_load_error_does_not_reuse_old_limit_cards(self):
+        text = """
+        КАБИНЕТ КЛИЕНТА
+        Лимиты
+        Подробная информация о Вашем тарифе
+        Could not load cabinet data.
+        ascend
+        активен ещё 28 д 8 ч
+        5 часов
+        117 888 444
+        Кредитов осталось
+        7 дней
+        421 381 328
+        Кредитов осталось
+        """
+
+        snapshot = parse_usage_text(text)
+
+        self.assertFalse(snapshot.has_data)
+        self.assertIsNone(snapshot.account)
+        self.assertEqual(snapshot.status_note, "нет данных")
 
 
 if __name__ == "__main__":

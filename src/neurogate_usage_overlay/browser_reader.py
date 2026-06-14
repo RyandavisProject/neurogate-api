@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import UsageSnapshot
-from .parser import parse_usage_text
+from .parser import has_invalid_session, has_stale_cabinet_data, parse_usage_text
 
 
 USAGE_URL = "https://portal.neurogate.space/client/usage"
@@ -186,7 +186,7 @@ class NeurogateUsageReader:
         if self.settings.usage_url not in self._page.url:
             self._page.goto(self.settings.usage_url, wait_until="domcontentloaded")
         text = self._wait_for_usage_text()
-        if self._is_login_text(text) and self._current_headless and self.settings.show_browser_on_login:
+        if self._requires_visible_login(text) and self._current_headless and self.settings.show_browser_on_login:
             self._open_visible_login_window()
             self._maybe_auto_submit_login()
             text = self._wait_for_usage_text()
@@ -221,6 +221,12 @@ class NeurogateUsageReader:
 
     def _is_login_text(self, text: str) -> bool:
         return "EMAIL" in text or "Connect Codex" in text or "ПАРОЛЬ" in text or "Войти" in text
+
+    def _is_session_invalid_text(self, text: str) -> bool:
+        return has_invalid_session(text)
+
+    def _requires_visible_login(self, text: str) -> bool:
+        return self._is_login_text(text) or self._is_session_invalid_text(text)
 
     def _open_visible_login_window(self) -> None:
         self._write_debug(parse_usage_text("", source_url=self.settings.usage_url), note="opening_visible_login")
@@ -352,9 +358,21 @@ class NeurogateUsageReader:
         last_text = ""
         login_text = ""
         login_attempts = 0
+        stale_text = ""
+        stale_attempts = 0
         for _attempt in range(30):
             self._page.wait_for_timeout(500)
             last_text = self._page.locator("body").inner_text(timeout=self.settings.timeout_ms)
+            if self._is_session_invalid_text(last_text):
+                stale_text = last_text
+                stale_attempts += 1
+                if stale_attempts >= LOGIN_CONFIRM_ATTEMPTS:
+                    return stale_text
+                continue
+            if has_stale_cabinet_data(last_text):
+                stale_text = last_text
+                stale_attempts += 1
+                continue
             if last_text.count("Кредитов осталось") >= 2:
                 return last_text
             if "ЛИМИТЫ ТАРИФА" in last_text:
@@ -366,6 +384,7 @@ class NeurogateUsageReader:
                     return login_text
                 continue
             login_attempts = 0
+            stale_attempts = 0
         return last_text
 
     def _expand_usage_card(self, force: bool = False) -> None:
@@ -550,7 +569,7 @@ class NeurogateUsageReader:
         )
 
     def _fallback_status(self, text: str) -> str:
-        if "EMAIL" in text or "Connect Codex" in text:
+        if self._requires_visible_login(text):
             return "нужен вход"
         return "нет данных"
 

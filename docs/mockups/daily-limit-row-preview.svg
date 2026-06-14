@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="850" viewBox="0 0 1300 850">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="redGlow" x="-30%" y="-60%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ff4d5d" flood-opacity="0.88"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#ff4d5d" flood-opacity="0.38"/>
+    </filter>
+    <linearGradient id="warnBar" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#76a8ff"/>
+      <stop offset="58%" stop-color="#ffb86b"/>
+      <stop offset="100%" stop-color="#ff5a66"/>
+    </linearGradient>
+    <linearGradient id="hotBar" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#ff9d54"/>
+      <stop offset="100%" stop-color="#ff4d5d"/>
+    </linearGradient>
+    <style>
+      .page { fill: #f3f6fa; }
+      .title { font: 700 30px "Segoe UI", Arial, sans-serif; fill: #172033; }
+      .note { font: 18px "Segoe UI", Arial, sans-serif; fill: #4f5c6f; }
+      .caption { font: 700 18px "Segoe UI", Arial, sans-serif; fill: #2a3547; }
+      .small { font: 15px "Segoe UI", Arial, sans-serif; fill: #657286; }
+      .overlayText { font-family: "Segoe UI", Arial, sans-serif; }
+      .pill { fill: #202935; stroke: #303946; stroke-width: 1; }
+      .bg { fill: #101722; }
+      .track { fill: #242932; }
+      .blue { fill: #76a8ff; }
+      .orange { fill: #ffb86b; }
+      .muted { fill: #9aa8ba; }
+      .dim { fill: #697386; }
+      .red { fill: #ff4d5d; }
+      .tooltip { fill: #171f2b; stroke: #344051; stroke-width: 1; }
+    </style>
+    <g id="overlayBase">
+      <rect class="bg" x="0" y="0" width="222" height="92" rx="10" filter="url(#shadow)"/>
+      <rect class="pill" x="7" y="5" width="91" height="17" rx="5"/>
+      <text class="overlayText blue" x="13" y="17" font-size="9.5" font-weight="600">ascend</text>
+      <text class="overlayText blue" x="51" y="17" font-size="9.2">ост 2д18ч</text>
+      <rect class="pill" x="103" y="5" width="67" height="17" rx="5"/>
+      <text class="overlayText muted" x="110" y="17" font-size="9.2">обн. 15:35</text>
+      <rect class="pill" x="176" y="5" width="29" height="17" rx="5"/>
+      <text class="overlayText muted" x="185" y="17" font-size="9.2">1ч</text>
+      <text class="overlayText muted" x="10" y="33" font-size="9.5">5ч</text>
+      <text class="overlayText orange" x="44" y="34" font-size="12.5" font-weight="700">119.3M</text>
+      <text class="overlayText dim" x="171" y="33" font-size="8.7">остаток</text>
+      <rect class="track" x="30" y="42" width="184" height="4" rx="2"/>
+      <rect class="blue" x="30" y="42" width="181" height="4" rx="2"/>
+      <text class="overlayText muted" x="10" y="55" font-size="9.5">7д</text>
+      <text class="overlayText orange" x="44" y="56" font-size="12.5" font-weight="700">421.3M</text>
+      <text class="overlayText dim" x="171" y="55" font-size="8.7">остаток</text>
+      <rect class="track" x="30" y="64" width="184" height="4" rx="2"/>
+      <rect class="blue" x="30" y="64" width="137" height="4" rx="2"/>
+    </g>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="1300" height="850"/>
+  <text class="title" x="54" y="58">Макет строки “лимит на день” перед внедрением</text>
+  <text class="note" x="54" y="91">Третья строка появляется только если пользователь задал дневной лимит. Высота оверлея растет, ширина остается компактной.</text>
+
+  <g transform="translate(66 142)">
+    <text class="caption" x="0" y="-24">1. До 50% дневного лимита — обычный синий стиль</text>
+    <g transform="scale(2.55)">
+      <use href="#overlayBase"/>
+      <text class="overlayText muted" x="10" y="77" font-size="8.8">лимит на день</text>
+      <text class="overlayText orange" x="80" y="78" font-size="11.8" font-weight="700">24.0M / 339.3M</text>
+      <rect class="track" x="30" y="86" width="184" height="4" rx="2"/>
+      <rect class="blue" x="30" y="86" width="54" height="4" rx="2"/>
+    </g>
+    <text class="small" x="0" y="266">Пример: задан лимит 82M, сегодня потрачено 24M. Полоса считается как 24 / 82 = 29%.</text>
+  </g>
+
+  <g transform="translate(66 490)">
+    <text class="caption" x="0" y="-24">2. После 50% — плавный уход к предупреждающему цвету</text>
+    <g transform="scale(2.55)">
+      <use href="#overlayBase"/>
+      <text class="overlayText muted" x="10" y="77" font-size="8.8">лимит на день</text>
+      <text class="overlayText orange" x="80" y="78" font-size="11.8" font-weight="700">63.0M / 339.3M</text>
+      <rect class="track" x="30" y="86" width="184" height="4" rx="2"/>
+      <rect fill="url(#warnBar)" x="30" y="86" width="141" height="4" rx="2"/>
+    </g>
+    <text class="small" x="0" y="266">Пример: 63 / 82 = 77%. Цвет уже не синий, но еще не аварийный.</text>
+  </g>
+
+  <g transform="translate(656 142)">
+    <text class="caption" x="0" y="-24">3. 100% и выше — красная полоса и свечение</text>
+    <g transform="scale(2.55)">
+      <use href="#overlayBase"/>
+      <text class="overlayText muted" x="10" y="77" font-size="8.8">лимит на день</text>
+      <text class="overlayText red" x="80" y="78" font-size="11.8" font-weight="700">84.0M / 339.3M</text>
+      <rect class="track" x="30" y="86" width="184" height="4" rx="2"/>
+      <rect fill="url(#hotBar)" x="30" y="86" width="184" height="4" rx="2" filter="url(#redGlow)"/>
+    </g>
+    <text class="small" x="0" y="266">Пример: 84 / 82 = 102%. Строка сигналит, что дневной коридор уже пробит.</text>
+  </g>
+
+  <g transform="translate(656 490)">
+    <text class="caption" x="0" y="-24">4. Подсказка при наведении</text>
+    <g transform="scale(2.55)">
+      <use href="#overlayBase"/>
+      <text class="overlayText muted" x="10" y="77" font-size="8.8">лимит на день</text>
+      <text class="overlayText orange" x="80" y="78" font-size="11.8" font-weight="700">10.9M / 339.3M</text>
+      <rect class="track" x="30" y="86" width="184" height="4" rx="2"/>
+      <rect class="blue" x="30" y="86" width="24" height="4" rx="2"/>
+      <rect class="tooltip" x="92" y="47" width="93" height="17" rx="5"/>
+      <text class="overlayText muted" x="98" y="58.5" font-size="7.6">не падаем ниже 339.3M</text>
+    </g>
+    <text class="small" x="0" y="266">Вторая цифра: нижняя граница 7д остатка. Здесь: 421.3M - 82M = 339.3M.</text>
+  </g>
+
+  <g transform="translate(54 815)">
+    <rect x="0" y="-22" width="1190" height="1" fill="#d8dee8"/>
+    <text class="small" x="0" y="0">Логика цвета: до 50% синий, 50-99% градиент к красному, 100%+ красный. Логика числа: потрачено сегодня / нижняя граница 7д остатка.</text>
+  </g>
+</svg>

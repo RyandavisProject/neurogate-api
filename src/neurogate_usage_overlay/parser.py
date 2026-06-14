@@ -8,11 +8,22 @@ from .models import UsageSnapshot, UsageWindow
 
 NUMBER_RE = re.compile(r"\d[\d \t\u00a0]*")
 WINDOW_TITLES = ("5 часов", "24 часа", "7 дней")
+SESSION_INVALID_MARKERS = (
+    "сессия больше недействительна",
+    "session is no longer valid",
+    "session no longer valid",
+    "session expired",
+)
+STALE_DATA_MARKERS = (
+    "could not load cabinet data.",
+    *SESSION_INVALID_MARKERS,
+)
 PLAN_SKIP_LINES = {
     "лимиты",
     "обновить",
     "обновление",
     "could not load cabinet data.",
+    "сессия больше недействительна.",
     "кабинет клиента",
     "подробная информация о вашем тарифе",
 }
@@ -116,6 +127,16 @@ def _parse_plan_name(text: str) -> str | None:
     return None
 
 
+def has_stale_cabinet_data(text: str) -> bool:
+    normalized = text.lower()
+    return any(marker in normalized for marker in STALE_DATA_MARKERS)
+
+
+def has_invalid_session(text: str) -> bool:
+    normalized = text.lower()
+    return any(marker in normalized for marker in SESSION_INVALID_MARKERS)
+
+
 def _parse_window(title: str, segment: str) -> UsageWindow | None:
     if not segment:
         return None
@@ -140,6 +161,10 @@ def parse_usage_text(text: str, source_url: str | None = None) -> UsageSnapshot:
         source_url=source_url,
         raw_text=normalized,
     )
+
+    if has_stale_cabinet_data(normalized):
+        snapshot.status_note = "нужен вход" if has_invalid_session(normalized) else "нет данных"
+        return snapshot
 
     snapshot.account = _parse_plan_name(normalized)
 

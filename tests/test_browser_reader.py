@@ -131,6 +131,46 @@ class BrowserReaderModeTest(unittest.TestCase):
         self.assertTrue(reader._login_visible)
         self.assertEqual(snapshot.status_note, "нужен вход")
 
+    def test_hidden_invalid_session_opens_visible_login_even_with_stale_cards(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+        reader._page = type("Page", (), {"url": reader.settings.usage_url})()
+        reader._current_headless = True
+        opens = 0
+        stale_text = """
+            КАБИНЕТ КЛИЕНТА
+            Лимиты
+            Подробная информация о Вашем тарифе
+            Сессия больше недействительна.
+            ascend
+            активен ещё 28 д 8 ч
+            5 часов
+            117 888 444
+            Кредитов осталось
+            7 дней
+            421 381 328
+            Кредитов осталось
+        """
+        texts = [stale_text, stale_text]
+
+        def open_visible_login_window() -> None:
+            nonlocal opens
+            opens += 1
+            reader._current_headless = False
+            reader._login_visible = True
+
+        reader._wait_for_usage_text = lambda: texts.pop(0) if texts else stale_text  # type: ignore[method-assign]
+        reader._open_visible_login_window = open_visible_login_window  # type: ignore[method-assign]
+        reader._maybe_auto_submit_login = lambda: False  # type: ignore[method-assign]
+        reader._attach_window_progress = lambda _snapshot: None  # type: ignore[method-assign]
+        reader._expand_usage_card = lambda force=False: None  # type: ignore[method-assign]
+        reader._write_debug = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+        snapshot = reader.read()
+
+        self.assertEqual(opens, 1)
+        self.assertFalse(snapshot.has_data)
+        self.assertEqual(snapshot.status_note, "нужен вход")
+
     def test_successful_read_allows_future_login_prompt(self):
         reader = NeurogateUsageReader(BrowserSettings(headless=True))
         reader._page = type("Page", (), {"url": reader.settings.usage_url})()
@@ -296,6 +336,36 @@ class BrowserReaderModeTest(unittest.TestCase):
 
         self.assertEqual(portal_refreshes, 1)
         self.assertEqual(reloads, 0)
+
+    def test_current_page_with_cabinet_error_is_not_treated_as_loaded_usage(self):
+        reader = NeurogateUsageReader(BrowserSettings(headless=True))
+
+        class Locator:
+            def inner_text(self, timeout: int) -> str:
+                return """
+                    КАБИНЕТ КЛИЕНТА
+                    Лимиты
+                    Подробная информация о Вашем тарифе
+                    Could not load cabinet data.
+                    ascend
+                    активен ещё 28 д 8 ч
+                    5 часов
+                    117 888 444
+                    Кредитов осталось
+                    7 дней
+                    421 381 328
+                    Кредитов осталось
+                """
+
+        class Page:
+            url = reader.settings.usage_url
+
+            def locator(self, _selector: str) -> Locator:
+                return Locator()
+
+        reader._page = Page()
+
+        self.assertFalse(reader._current_page_has_usage_data())
 
     def test_auto_login_submits_stable_prefilled_form(self):
         reader = NeurogateUsageReader(BrowserSettings(headless=True))
